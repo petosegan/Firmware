@@ -286,6 +286,8 @@ void Simulator::handle_message(mavlink_message_t *msg, bool publish)
 	case MAVLINK_MSG_ID_DISTANCE_SENSOR:
 		mavlink_distance_sensor_t dist;
 		mavlink_msg_distance_sensor_decode(msg, &dist);
+		publish_distance_topic(&dist);
+		break;
 
 	case MAVLINK_MSG_ID_HIL_GPS:
 		mavlink_hil_gps_t gps_sim;
@@ -884,13 +886,13 @@ int Simulator::publish_distance_topic(mavlink_distance_sensor_t *dist_mavlink)
 	memset(&dist, 0, sizeof(dist));
 
 	dist.timestamp = timestamp;
-	dist.min_distance = dist_mavlink->min_distance;
-	dist.max_distance = dist_mavlink->max_distance;
-	dist.current_distance = dist_mavlink->current_distance;
+	dist.min_distance = dist_mavlink->min_distance/100.0f;
+	dist.max_distance = dist_mavlink->max_distance/100.0f;
+	dist.current_distance = dist_mavlink->current_distance/100.0f;
 	dist.type = dist_mavlink->type;
 	dist.id = dist_mavlink->id;
 	dist.orientation = dist_mavlink->orientation;
-	dist.covariance = dist_mavlink->covariance;
+	dist.covariance = dist_mavlink->covariance/100.0f;
 
 	int dist_multi;
 	orb_publish_auto(ORB_ID(distance_sensor), &_dist_pub, &dist, &dist_multi, ORB_PRIO_HIGH);
