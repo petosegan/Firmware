@@ -280,6 +280,7 @@ private:
 		float airspeed_min;
 		float airspeed_trim;
 		float airspeed_max;
+		float airspeed_trans;
 
 		float pitch_limit_min;
 		float pitch_limit_max;
@@ -334,6 +335,7 @@ private:
 		param_t airspeed_min;
 		param_t airspeed_trim;
 		param_t airspeed_max;
+		param_t airspeed_trans;
 
 		param_t pitch_limit_min;
 		param_t pitch_limit_max;
@@ -611,6 +613,7 @@ FixedwingPositionControl::FixedwingPositionControl() :
 	_parameter_handles.airspeed_min = param_find("FW_AIRSPD_MIN");
 	_parameter_handles.airspeed_trim = param_find("FW_AIRSPD_TRIM");
 	_parameter_handles.airspeed_max = param_find("FW_AIRSPD_MAX");
+	_parameter_handles.airspeed_trans = param_find("VT_ARSP_TRANS");
 
 	_parameter_handles.pitch_limit_min = param_find("FW_P_LIM_MIN");
 	_parameter_handles.pitch_limit_max = param_find("FW_P_LIM_MAX");
@@ -693,6 +696,7 @@ FixedwingPositionControl::parameters_update()
 	param_get(_parameter_handles.airspeed_min, &(_parameters.airspeed_min));
 	param_get(_parameter_handles.airspeed_trim, &(_parameters.airspeed_trim));
 	param_get(_parameter_handles.airspeed_max, &(_parameters.airspeed_max));
+	param_get(_parameter_handles.airspeed_trans, &(_parameters.airspeed_trans));
 
 	param_get(_parameter_handles.pitch_limit_min, &(_parameters.pitch_limit_min));
 	param_get(_parameter_handles.pitch_limit_max, &(_parameters.pitch_limit_max));
@@ -2301,7 +2305,9 @@ void FixedwingPositionControl::tecs_update_pitch_throttle(float alt_sp, float v_
 	// we're in transition
 	if (_vehicle_status.is_vtol && _vehicle_status.in_transition_mode) {
 		_was_in_transition = true;
-		_asp_after_transition = _ctrl_state.airspeed;
+		// set this to transition airspeed to init tecs correctly
+		// some vtols fly without airspeed sensor
+		_asp_after_transition = _parameters.airspeed_trans;
 
 	} else if (_was_in_transition) {
 		// after transition we ramp up desired airspeed from the speed we had coming out of the transition
