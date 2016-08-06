@@ -24,6 +24,7 @@ set(config_module_list
 	modules/sensors
 	platforms/posix/drivers/df_ms5607_wrapper
 	platforms/posix/drivers/df_mpu6050_wrapper
+	platforms/posix/drivers/df_ak8963_wrapper
 
 	#
 	# System commands
@@ -51,7 +52,7 @@ set(config_module_list
 	modules/mc_att_control
 	modules/mc_pos_control
 	modules/fw_att_control
-	modules/fw_pos_control_l1	
+	modules/fw_pos_control_l1
 	modules/vtol_att_control
 
 	#
@@ -60,7 +61,6 @@ set(config_module_list
 	modules/sdlog2
 	modules/logger
 	modules/commander
-	modules/load_mon
 	modules/param
 	modules/systemlib
 	modules/systemlib/mixer
@@ -102,4 +102,5 @@ set(config_module_list
 set(config_df_driver_list
 	ms5607
 	mpu6050
+	ak8963
 )

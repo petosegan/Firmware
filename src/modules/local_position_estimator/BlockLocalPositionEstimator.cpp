@@ -25,8 +25,8 @@ BlockLocalPositionEstimator::BlockLocalPositionEstimator() :
 	// subscriptions, set rate, add to list
 	_sub_armed(ORB_ID(actuator_armed), 1000 / 2, 0, &getSubscriptions()),
 	_sub_att(ORB_ID(vehicle_attitude), 1000 / 100, 0, &getSubscriptions()),
-	// flow 10 hz
-	_sub_flow(ORB_ID(optical_flow), 1000 / 10, 0, &getSubscriptions()),
+	// set flow max update rate higher than expected to we don't lose packets
+	_sub_flow(ORB_ID(optical_flow), 1000 / 100, 0, &getSubscriptions()),
 	// main prediction loop, 100 hz
 	_sub_sensor(ORB_ID(sensor_combined), 1000 / 100, 0, &getSubscriptions()),
 	// status updates 2 hz
@@ -50,6 +50,7 @@ BlockLocalPositionEstimator::BlockLocalPositionEstimator() :
 	_pub_lpos(ORB_ID(vehicle_local_position), -1, &getPublications()),
 	_pub_gpos(ORB_ID(vehicle_global_position), -1, &getPublications()),
 	_pub_est_status(ORB_ID(estimator_status), -1, &getPublications()),
+	_pub_innov(ORB_ID(ekf2_innovations), -1, &getPublications()),
 
 	// map projection
 	_map_ref(),
@@ -253,29 +254,34 @@ void BlockLocalPositionEstimator::update()
 	}
 
 	// reset pos, vel, and terrain on arming
-	if (!_lastArmedState && armedState) {
 
-		// we just armed, we are at origin on the ground
-		_x(X_x) = 0;
-		_x(X_y) = 0;
-		_x(X_z) = 0;
+	// XXX this will be re-enabled for indoor use cases using a
+	// selection param, but is really not helping outdoors
+	// right now.
 
-		// reset flow integral
-		_flowX = 0;
-		_flowY = 0;
+	// if (!_lastArmedState && armedState) {
 
-		// we aren't moving, all velocities are zero
-		_x(X_vx) = 0;
-		_x(X_vy) = 0;
-		_x(X_vz) = 0;
+	// 	// we just armed, we are at origin on the ground
+	// 	_x(X_x) = 0;
+	// 	_x(X_y) = 0;
+	// 	// reset Z or not? _x(X_z) = 0;
 
-		// assume we are on the ground, so terrain alt is local alt
-		_x(X_tz) = _x(X_z);
+	// 	// reset flow integral
+	// 	_flowX = 0;
+	// 	_flowY = 0;
 
-		// reset lowpass filter as well
-		_xLowPass.setState(_x);
-		_aglLowPass.setState(0);
-	}
+	// 	// we aren't moving, all velocities are zero
+	// 	_x(X_vx) = 0;
+	// 	_x(X_vy) = 0;
+	// 	_x(X_vz) = 0;
+
+	// 	// assume we are on the ground, so terrain alt is local alt
+	// 	_x(X_tz) = _x(X_z);
+
+	// 	// reset lowpass filter as well
+	// 	_xLowPass.setState(_x);
+	// 	_aglLowPass.setState(0);
+	// }
 
 	_lastArmedState = armedState;
 
@@ -479,6 +485,7 @@ void BlockLocalPositionEstimator::update()
 		// update all publications if possible
 		publishLocalPos();
 		publishEstimatorStatus();
+		_pub_innov.update();
 
 		if (_validXY) {
 			publishGlobalPos();

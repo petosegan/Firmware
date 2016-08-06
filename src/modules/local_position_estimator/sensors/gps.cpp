@@ -46,11 +46,11 @@ void BlockLocalPositionEstimator::gpsInit()
 		}
 
 		_gpsAltOrigin = _gpsStats.getMean()(2);
-		mavlink_and_console_log_info(&mavlink_log_pub, "[lpe] gps init "
-					     "lat %6.2f lon %6.2f alt %5.1f m",
-					     gpsLatOrigin,
-					     gpsLonOrigin,
-					     double(_gpsAltOrigin));
+		PX4_INFO("[lpe] gps init "
+			 "lat %6.2f lon %6.2f alt %5.1f m",
+			 gpsLatOrigin,
+			 gpsLonOrigin,
+			 double(_gpsAltOrigin));
 		_gpsInitialized = true;
 		_gpsFault = FAULT_NONE;
 		_gpsStats.reset();
@@ -114,7 +114,7 @@ void BlockLocalPositionEstimator::gpsCorrect()
 	C(Y_gps_vz, X_vz) = 1;
 
 	// gps covariance matrix
-	Matrix<float, n_y_gps, n_y_gps> R;
+	SquareMatrix<float, n_y_gps> R;
 	R.setZero();
 
 	// default to parameter, use gps cov if provided
@@ -141,10 +141,10 @@ void BlockLocalPositionEstimator::gpsCorrect()
 
 	// get delayed x and P
 	float t_delay = 0;
-	int i = 0;
+	int i_hist = 0;
 
-	for (i = 1; i < HIST_LEN; i++) {
-		t_delay = 1.0e-6f * (_timeStamp - _tDelay.get(i)(0, 0));
+	for (i_hist = 1; i_hist < HIST_LEN; i_hist++) {
+		t_delay = 1.0e-6f * (_timeStamp - _tDelay.get(i_hist)(0, 0));
 
 		if (t_delay > _gps_delay.get()) {
 			break;
@@ -158,10 +158,16 @@ void BlockLocalPositionEstimator::gpsCorrect()
 		return;
 	}
 
-	Vector<float, n_x> x0 = _xDelay.get(i);
+	Vector<float, n_x> x0 = _xDelay.get(i_hist);
 
 	// residual
 	Vector<float, n_y_gps> r = y - C * x0;
+
+	for (int i = 0; i < 6; i ++) {
+		_pub_innov.get().vel_pos_innov[i] = r(i);
+		_pub_innov.get().vel_pos_innov_var[i] = R(i, i);
+	}
+
 	Matrix<float, n_y_gps, n_y_gps> S_I = inv<float, 6>(C * _P * C.transpose() + R);
 
 	// fault detection
@@ -169,9 +175,12 @@ void BlockLocalPositionEstimator::gpsCorrect()
 
 	if (beta > BETA_TABLE[n_y_gps]) {
 		if (_gpsFault < FAULT_MINOR) {
-			mavlink_and_console_log_info(&mavlink_log_pub, "[lpe] gps fault %3g %3g %3g %3g %3g %3g",
-						     double(r(0)*r(0) / S_I(0, 0)),  double(r(1)*r(1) / S_I(1, 1)), double(r(2)*r(2) / S_I(2, 2)),
-						     double(r(3)*r(3) / S_I(3, 3)),  double(r(4)*r(4) / S_I(4, 4)), double(r(5)*r(5) / S_I(5, 5)));
+			if (beta > 2.0f * BETA_TABLE[n_y_gps]) {
+				mavlink_and_console_log_critical(&mavlink_log_pub, "[lpe] gps fault %3g %3g %3g %3g %3g %3g",
+								 double(r(0)*r(0) / S_I(0, 0)),  double(r(1)*r(1) / S_I(1, 1)), double(r(2)*r(2) / S_I(2, 2)),
+								 double(r(3)*r(3) / S_I(3, 3)),  double(r(4)*r(4) / S_I(4, 4)), double(r(5)*r(5) / S_I(5, 5)));
+			}
+
 			_gpsFault = FAULT_MINOR;
 		}
 
@@ -196,7 +205,7 @@ void BlockLocalPositionEstimator::gpsCheckTimeout()
 		if (_gpsInitialized) {
 			_gpsInitialized = false;
 			_gpsStats.reset();
-			mavlink_and_console_log_info(&mavlink_log_pub, "[lpe] GPS timeout ");
+			mavlink_and_console_log_critical(&mavlink_log_pub, "[lpe] GPS timeout ");
 		}
 	}
 }
